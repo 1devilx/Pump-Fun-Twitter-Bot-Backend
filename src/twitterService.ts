@@ -1,94 +1,6 @@
-export interface Tweet {
-  id: string;
-  text: string;
-  created_at: string;
-  user: {
-    name: string;
-    screen_name: string;
-    profile_image_url: string;
-  };
-}
+import { RawTweet, TwitterSearchResponse, SearchConfig, Tweet, TweetEntity, TwitterUser, TwitterSearchState } from './types';
 
-interface TweetEntity {
-  urls: Array<{
-    display_url: string;
-    expanded_url: string;
-    indices: number[];
-    url: string;
-  }>;
-  hashtags: any[];
-  symbols: any[];
-  timestamps: any[];
-  user_mentions: any[];
-}
-
-interface TwitterUser {
-  id: number;
-  id_str: string;
-  name: string;
-  screen_name: string;
-  location: string | null;
-  url: string | null;
-  description: string;
-  protected: boolean;
-  verified: boolean;
-  followers_count: number;
-  friends_count: number;
-  listed_count: number;
-  favourites_count: number;
-  statuses_count: number;
-  created_at: string;
-  profile_banner_url: string | null;
-  profile_image_url_https: string;
-  can_dm: boolean;
-}
-
-interface RawTweet {
-  tweet_created_at: string;
-  id: number;
-  id_str: string;
-  text: string | null;
-  full_text: string;
-  source: string;
-  truncated: boolean;
-  in_reply_to_status_id: number | null;
-  in_reply_to_status_id_str: string | null;
-  in_reply_to_user_id: number | null;
-  in_reply_to_user_id_str: string | null;
-  in_reply_to_screen_name: string | null;
-  user: TwitterUser;
-  quoted_status_id: number | null;
-  quoted_status_id_str: string | null;
-  is_quote_status: boolean;
-  quoted_status: any | null;
-  retweeted_status: any | null;
-  quote_count: number;
-  reply_count: number;
-  retweet_count: number;
-  favorite_count: number;
-  views_count: number | null;
-  bookmark_count: number;
-  lang: string;
-  entities: TweetEntity;
-  is_pinned: boolean;
-}
-
-interface TwitterSearchResponse {
-  tweets: RawTweet[];
-  next_cursor: string;
-}
-
-export interface SearchConfig {
-  query: string;
-  type: 'pumpfun' | 'dexscreener';
-  urlPattern: string;
-}
-
-interface TwitterSearchState {
-  lastTweetId: string | null;
-  isFirstRequest: boolean;
-}
-
+export type { SearchConfig };
 export class TwitterService {
   private apiKey: string;
   private searchStates: Map<string, TwitterSearchState>;
@@ -112,6 +24,14 @@ export class TwitterService {
         urlPattern: 'dexscreener.com/solana/'
       }
     ];
+
+    // Initialize search states
+    this.searchConfigs.forEach(config => {
+      this.searchStates.set(config.type, {
+        lastTweetId: null,
+        isFirstRequest: true
+      });
+    });
   }
 
   private getSearchState(type: string): TwitterSearchState {
@@ -124,13 +44,45 @@ export class TwitterService {
     return this.searchStates.get(type)!;
   }
 
+  private updateSearchState(type: string, tweets: RawTweet[]) {
+    if (tweets.length > 0) {
+      const state = this.getSearchState(type);
+      // Twitter returns tweets in descending order, so first tweet has highest ID
+      state.lastTweetId = tweets[0].id_str;
+      state.isFirstRequest = false;
+    }
+  }
+
+  private transformTweet(rawTweet: RawTweet): Tweet {
+    return {
+      id: rawTweet.id_str,
+      text: rawTweet.full_text,
+      created_at: rawTweet.tweet_created_at,
+      user: {
+        name: rawTweet.user.name,
+        screen_name: rawTweet.user.screen_name,
+        profile_image_url: rawTweet.user.profile_image_url_https
+      }
+    };
+  }
+
   async searchTweets(query: string, type: string): Promise<RawTweet[]> {
     try {
       if (!this.apiKey) {
         throw new Error('API key not configured');
       }
 
-      const searchQuery = query.includes('-filter:retweets') ? query : `${query} -filter:retweets`;
+      const state = this.getSearchState(type);
+      let searchQuery = query;
+
+      // Add since_id parameter to only get new tweets
+      if (!state.isFirstRequest && state.lastTweetId) {
+        searchQuery = `${query} since_id:${state.lastTweetId}`;
+      }
+
+      // Always exclude retweets to avoid duplicates
+      searchQuery = searchQuery.includes('-filter:retweets') ? searchQuery : `${searchQuery} -filter:retweets`;
+      
       const encodedQuery = encodeURIComponent(searchQuery);
       const searchType = 'Latest';
       const baseUrl = 'https://api.socialdata.tools/twitter/search';
@@ -139,7 +91,8 @@ export class TwitterService {
       console.log('Making Twitter API request:', {
         type,
         searchQuery,
-        url
+        url,
+        lastTweetId: state.lastTweetId
       });
 
       const response = await fetch(url, {
@@ -162,7 +115,12 @@ export class TwitterService {
       }
 
       const data: TwitterSearchResponse = await response.json();
-      return data.tweets || [];
+      const tweets = data.tweets || [];
+
+      // Update the last tweet ID for this query type
+      this.updateSearchState(type, tweets);
+
+      return tweets;
     } catch (error) {
       console.error('Error searching tweets:', error);
       throw error;
