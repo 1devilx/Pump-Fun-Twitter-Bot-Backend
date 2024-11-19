@@ -61,8 +61,17 @@ export class TwitterService {
       user: {
         name: rawTweet.user.name,
         screen_name: rawTweet.user.screen_name,
-        profile_image_url: rawTweet.user.profile_image_url_https
-      }
+        profile_image_url: rawTweet.user.profile_image_url_https,
+        verified: rawTweet.user.verified,
+        followers_count: rawTweet.user.followers_count
+      },
+      entities: {
+        urls: rawTweet.entities.urls
+      },
+      retweet_count: rawTweet.retweet_count || 0,
+      favorite_count: rawTweet.favorite_count || 0,
+      views_count: rawTweet.views_count,
+      bookmark_count: rawTweet.bookmark_count
     };
   }
 

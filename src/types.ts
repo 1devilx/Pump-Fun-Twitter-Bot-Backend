@@ -6,7 +6,21 @@ export interface Tweet {
         name: string;
         screen_name: string;
         profile_image_url: string;
+        verified: boolean;
+        followers_count: number;
     };
+    entities: {
+        urls: Array<{
+            display_url: string;
+            expanded_url: string;
+            indices: number[];
+            url: string;
+        }>;
+    };
+    retweet_count: number;
+    favorite_count: number;
+    views_count: number | null;
+    bookmark_count: number | null;
 }
 
 export interface TweetEntity {
