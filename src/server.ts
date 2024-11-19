@@ -16,6 +16,11 @@ app.use(cors());
 app.use(express.json());
 app.use('/api', routes);
 
+// Add health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'healthy' });
+});
+
 const twitterService = new TwitterService();
 
 // Store connected clients
@@ -95,5 +100,5 @@ wss.on('connection', (ws: WebSocket) => {
 const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 });
