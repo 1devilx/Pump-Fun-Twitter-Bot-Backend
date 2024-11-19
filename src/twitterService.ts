@@ -117,20 +117,27 @@ export class TwitterService {
       const data = await response.json();
       
       // Type guard to verify the response matches TwitterSearchResponse
-      if (!data || typeof data !== 'object' || !Array.isArray(data.tweets)) {
+      if (!data || typeof data !== 'object') {
         console.error('Invalid API response format:', data);
         throw new Error('Invalid API response format');
       }
 
-      const tweets = data.tweets;
+      const responseData = data as { tweets?: unknown[] };
+      
+      if (!responseData.tweets || !Array.isArray(responseData.tweets)) {
+        console.error('Invalid API response format: missing tweets array');
+        throw new Error('Invalid API response format: missing tweets array');
+      }
 
       // Verify each tweet has the required properties
-      const validTweets = tweets.filter((tweet: unknown): tweet is RawTweet => {
-        return typeof tweet === 'object' && tweet !== null &&
-               typeof (tweet as any).id === 'number' &&
-               typeof (tweet as any).id_str === 'string' &&
-               typeof (tweet as any).full_text === 'string' &&
-               typeof (tweet as any).tweet_created_at === 'string';
+      const validTweets = responseData.tweets.filter((tweet: unknown): tweet is RawTweet => {
+        if (!tweet || typeof tweet !== 'object') return false;
+        
+        const tweetObj = tweet as Record<string, unknown>;
+        return typeof tweetObj.id === 'number' &&
+               typeof tweetObj.id_str === 'string' &&
+               typeof tweetObj.full_text === 'string' &&
+               typeof tweetObj.tweet_created_at === 'string';
       });
 
       // Update the last tweet ID for this query type

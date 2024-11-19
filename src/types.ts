@@ -75,7 +75,7 @@ export interface RawTweet {
 
 export interface TwitterSearchResponse {
     tweets: RawTweet[];
-    next_cursor: string;
+    next_cursor?: string;
 }
 
 export interface SearchConfig {
