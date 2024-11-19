@@ -3,7 +3,8 @@ import { createServer } from 'http';
 import { WebSocket, WebSocketServer } from 'ws';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { TwitterService, SearchConfig } from './twitterService';
+import { TwitterService } from './twitterService';
+import routes from './route';
 
 dotenv.config();
 
@@ -13,6 +14,7 @@ const wss = new WebSocketServer({ server });
 
 app.use(cors());
 app.use(express.json());
+app.use('/api', routes);
 
 const twitterService = new TwitterService();
 
@@ -87,41 +89,6 @@ wss.on('connection', (ws: WebSocket) => {
   ws.on('close', () => {
     console.log('Client disconnected');
     clients.delete(ws);
-  });
-});
-
-// REST API endpoint (now serves cached data)
-app.get('/api/tweets', async (req, res) => {
-  try {
-    const { type } = req.query;
-    if (!type) {
-      return res.status(400).json({ error: 'Missing type parameter' });
-    }
-
-    const query = type === 'pumpfun' ? 'pump.fun/coin/' : 'dexscreener.com/solana/';
-    const cacheKey = `${type}:${query}`;
-    
-    // Return cached tweets if available
-    if (tweetCache.has(cacheKey)) {
-      return res.json({ tweets: tweetCache.get(cacheKey) });
-    }
-
-    // If not in cache, fetch new tweets
-    const tweets = await twitterService.searchTweets(query, type.toString());
-    tweetCache.set(cacheKey, tweets);
-    res.json({ tweets });
-  } catch (error) {
-    console.error('API error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Health check endpoint for Railway
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'healthy',
-    connectedClients: clients.size,
-    cacheStatus: Array.from(tweetCache.keys())
   });
 });
 
