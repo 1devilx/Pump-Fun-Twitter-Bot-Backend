@@ -114,13 +114,29 @@ export class TwitterService {
         throw new Error(`Twitter API error: ${response.status}`);
       }
 
-      const data: TwitterSearchResponse = await response.json();
-      const tweets = data.tweets || [];
+      const data = await response.json();
+      
+      // Type guard to verify the response matches TwitterSearchResponse
+      if (!data || typeof data !== 'object' || !Array.isArray(data.tweets)) {
+        console.error('Invalid API response format:', data);
+        throw new Error('Invalid API response format');
+      }
+
+      const tweets = data.tweets;
+
+      // Verify each tweet has the required properties
+      const validTweets = tweets.filter((tweet: unknown): tweet is RawTweet => {
+        return typeof tweet === 'object' && tweet !== null &&
+               typeof (tweet as any).id === 'number' &&
+               typeof (tweet as any).id_str === 'string' &&
+               typeof (tweet as any).full_text === 'string' &&
+               typeof (tweet as any).tweet_created_at === 'string';
+      });
 
       // Update the last tweet ID for this query type
-      this.updateSearchState(type, tweets);
+      this.updateSearchState(type, validTweets);
 
-      return tweets;
+      return validTweets;
     } catch (error) {
       console.error('Error searching tweets:', error);
       throw error;
