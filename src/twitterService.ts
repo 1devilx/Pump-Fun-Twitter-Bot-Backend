@@ -7,7 +7,7 @@ export class TwitterService {
   private searchConfigs: SearchConfig[];
 
   constructor() {
-    this.apiKey = process.env.SOCIALDATA_API_KEY || '';
+    this.apiKey = process.env.SOCIALDATA_API_KEY || '1945|l9TyxBfKfGRP5qR3gTqjaMEb3YmtYxMGW7dhMsfl1c098530';
     if (!this.apiKey) {
       console.error('SOCIALDATA_API_KEY is not set in environment variables');
     }
